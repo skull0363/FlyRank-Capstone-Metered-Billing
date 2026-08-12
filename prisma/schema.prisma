@@ -1,0 +1,41 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum PlanType {
+  FREE
+  PRO
+}
+
+model Tenant {
+  id             String         @id @default(uuid())
+  name           String
+  stripeCustomerId String?      @unique
+  subscription   Subscription?
+  usageEvents    UsageEvent[]
+  createdAt      DateTime       @default(now())
+}
+
+model Subscription {
+  id                   String   @id @default(uuid())
+  tenantId             String   @unique
+  tenant               Tenant   @relation(fields: [tenantId], references: [id])
+  stripeSubscriptionId String?  @unique
+  plan                 PlanType @default(FREE)
+  status               String   @default("active")
+  updatedAt            DateTime @updatedAt
+}
+
+model UsageEvent {
+  id             String   @id @default(uuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  type           String   // "API_CALL" | "AI_TOKENS"
+  quantity       Int
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+}
