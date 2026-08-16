@@ -1,8 +1,0 @@
-run: npm start
-seed: npx prisma db seed
-test: npm test
-base_url: http://localhost:51214
-endpoints:
-  usage: GET /usage
-  meter: POST /generate
-  webhook: POST /webhooks/stripe
