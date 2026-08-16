@@ -43,3 +43,31 @@ def generate(req: GenerateRequest, idempotency_key: str = Header(...), db: Sessi
         response_payload={"cost_cents": cost_cents, "usage_type": usage_type},
     )
     return {"usage_event_id": event.id, "cost_cents": cost_cents, "usage_type": usage_type}
+
+@app.get("/usage")
+def get_usage(tenant_id: str, db: Session = Depends(get_db)):
+    tenant = db.query(Tenant).get(tenant_id)
+    if not tenant:
+        raise HTTPException(404, "Tenant not found")
+
+    quotas = PLAN_QUOTAS[tenant.plan]
+    api_used = current_usage(db, tenant.id, "api_call")
+    token_used = current_usage(db, tenant.id, "tokens")
+
+    events = db.query(UsageEvent).filter_by(tenant_id=tenant.id, usage_type="tokens").all()
+    total_cost = sum(
+        calculate_cost({
+            "input_tokens": e.input_tokens,
+            "cached_input_tokens": e.cached_input_tokens,
+            "output_tokens": e.output_tokens,
+            "reasoning_tokens": e.reasoning_tokens,
+        }) for e in events
+    )
+
+    return {
+        "tenant_id": tenant.id,
+        "plan": tenant.plan,
+        "api_calls": {"used": api_used, "limit": quotas["api_call_limit"]},
+        "tokens": {"used": token_used, "limit": quotas["token_limit"]},
+        "cost_cents": round(total_cost, 4),
+    }
