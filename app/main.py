@@ -6,6 +6,8 @@ from app.meter_service import record_usage, QuotaExceeded
 from app.quota_service import check_quota, current_usage
 from app.pricing import PLAN_QUOTAS, calculate_cost
 from app.schemas import GenerateRequest
+from app.stripe_routes import router as stripe_router
+app.include_router(stripe_router)
 
 app = FastAPI(title="Usage Metering & Billing Engine")
 init_db()
