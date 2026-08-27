@@ -1,13 +1,4 @@
-"""
-conftest.py -- pytest fixtures shared across the whole test suite.
 
-Your existing tests/test_metering.py, test_quota.py, and test_webhooks.py
-reference `client`, `tenant`, `tenant_at_999_calls`, and
-`valid_stripe_event_payload_and_sig` -- none of these were defined anywhere,
-so `pytest -q` cannot even collect the tests. This file defines all four.
-
-Place this at the REPO ROOT's tests/ folder: tests/conftest.py
-"""
 import hashlib
 import hmac
 import json
