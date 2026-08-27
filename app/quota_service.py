@@ -1,14 +1,16 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models import UsageEvent, Tenant
-from app.meter_service import QuotaExceeded
+from app.exceptions import QuotaExceeded  # FIX: imported from exceptions.py, no cycle
 from app.pricing import PLAN_QUOTAS
+
 
 def current_usage(db: Session, tenant_id: str, usage_type: str) -> int:
     total = db.query(func.coalesce(func.sum(UsageEvent.quantity), 0)).filter_by(
         tenant_id=tenant_id, usage_type=usage_type
     ).scalar()
     return total or 0
+
 
 def check_quota(db: Session, tenant: Tenant, usage_type: str, requested_qty: int):
     quotas = PLAN_QUOTAS[tenant.plan]
@@ -23,5 +25,5 @@ def check_quota(db: Session, tenant: Tenant, usage_type: str, requested_qty: int
         raise QuotaExceeded(
             429,
             f"Quota exceeded for {usage_type}: {used}/{limit} used, "
-            f"requested {requested_qty} would exceed the {tenant.plan} plan limit."
+            f"requested {requested_qty} would exceed the {tenant.plan} plan limit.",
         )

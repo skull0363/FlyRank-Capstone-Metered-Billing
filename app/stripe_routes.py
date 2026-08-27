@@ -1,5 +1,5 @@
 import stripe
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException, Header
 from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models import Tenant, ProcessedWebhookEvent
@@ -8,8 +8,16 @@ from app.config import settings
 stripe.api_key = settings.stripe_secret_key
 router = APIRouter()
 
+
 @router.post("/billing/checkout")
-def create_checkout(tenant_id: str, db: Session = Depends(get_db)):
+def create_checkout(
+    tenant_id: str,
+    db: Session = Depends(get_db),
+    x_tenant_id: str = Header(..., alias="X-Tenant-Id"),
+):
+    if x_tenant_id != tenant_id:
+        raise HTTPException(403, "Not authorized to create a checkout session for this tenant")
+
     tenant = db.query(Tenant).get(tenant_id)
     if not tenant:
         raise HTTPException(404, "Tenant not found")
@@ -29,6 +37,7 @@ def create_checkout(tenant_id: str, db: Session = Depends(get_db)):
     )
     return {"checkout_url": session.url}
 
+
 @router.post("/webhooks/stripe")
 async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     payload = await request.body()
@@ -39,7 +48,6 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     except (ValueError, stripe.error.SignatureVerificationError):
         raise HTTPException(400, "Invalid signature")
 
-    # dedup by Stripe event ID — replay of a real event is ignored
     if db.query(ProcessedWebhookEvent).get(event["id"]):
         return {"status": "already_processed"}
 
@@ -48,6 +56,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
     db.add(ProcessedWebhookEvent(stripe_event_id=event["id"], event_type=event["type"]))
     db.commit()
     return {"status": "ok"}
+
 
 def _handle_event(db: Session, event: dict):
     etype = event["type"]
